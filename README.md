@@ -31,15 +31,11 @@
 
 ### 2. 安装 Ollama
 
-请按照 Ollama 官方文档中的步骤安装 Ollama CLI 工具。可以在终端运行以下命令来检查是否安装成功：
-
-```bash
-ollama --version
-```
+请访问 [Ollama 官网](https://ollama.com/) 下载并安装 Ollama CLI 工具。
 
 ### 3. 下载语言模型
 
-运行以下命令下载所需的语言模型：
+安装完成后，在终端运行以下命令下载所需的语言模型：
 
 ```bash
 ollama pull llama3.1:8b
