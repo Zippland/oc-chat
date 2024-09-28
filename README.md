@@ -71,7 +71,7 @@ pip install subprocess
 在项目目录下运行程序：
 
 ```bash
-python main.py
+python dialogue.py
 ```
 
 ### 2. 输入角色A的第一句话
