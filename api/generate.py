@@ -1,10 +1,13 @@
 import json
-import subprocess
+import openai
 from flask import Flask, request
 
 app = Flask(__name__)
 
-# 设置角色性格和对话目的，注意：不要修改"角色A""角色B"和"名称"这几个关键字
+# 设置 OpenAI API 密钥
+openai.api_key = 'your_openai_api_key_here'
+
+# 设置角色性格和对话目的
 roles = {
     "角色A": {
         "名称": "哈利·波特",
@@ -18,23 +21,20 @@ roles = {
     }
 }
 
-def call_ollama(prompt):
-    result = subprocess.run(
-        ["ollama", "run", "llama3.1:8b", prompt],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        encoding='utf-8',
-        errors='ignore'
-    )
+def call_gpt(prompt):
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": prompt}],
+            max_tokens=150
+        )
+        return response['choices'][0]['message']['content'].strip()
+    except Exception as e:
+        return f"发生错误: {str(e)}"
 
-    if result.returncode != 0:
-        return "发生错误"
-    
-    output = result.stdout.strip()
-    if "failed to get console mode" in output:
-        return output.split("\n")[-1]  # 只返回有效输出
-
-    return output
+def summarize_dialogue(cha, dialogue):
+    summary_prompt = f"请详细地概括出 {cha} 表达了什么内容，越详细越好，字数越多越好，注意：概括前要加名字标注，一句话就行，不要任何格式。：\n" + "\n" + str(dialogue)
+    return call_gpt(summary_prompt)
 
 @app.route('/api/generate', methods=['POST'])
 def generate():
@@ -44,30 +44,34 @@ def generate():
     role_a_name = data.get('roleA_name', roles['角色A']['名称'])
     role_b_name = data.get('roleB_name', roles['角色B']['名称'])
     first_sentence = data.get('first_sentence', "")
+    dialogue = data.get('dialogue', [])
+    turn_count = len(dialogue)  # 已进行的对话轮次
     
     roles['角色A']['名称'] = role_a_name
     roles['角色B']['名称'] = role_b_name
     
-    dialogue = []
     if first_sentence:
-        dialogue = [{"role": role_a_name, "content": first_sentence}]
-    
-    cnt = 0  # 对话轮次
+        dialogue.append({"role": role_a_name, "content": first_sentence})
     
     system_prompt_a = (
-        f"系统提示: 你现在扮演的是{roles['角色A']['名称']}。你的每一句话都要符合人设，且专注于自己的目的，现在请继续向{roles['角色B']['名称']}表达你的观点，不用在开头打出自己的名字。"
+        f"系统提示: 你现在扮演的是{roles['角色A']}。你的每一句话都要符合人设，且专注于自己的目的，现在请继续向{roles['角色B']['名称']}表达你的观点，不用在开头打出自己的名字。一句话就行，不要任何格式。"
     )
     system_prompt_b = (
-        f"系统提示: 你现在扮演的是{roles['角色B']['名称']}。你的每一句话都要符合人设，且专注于自己的目的，现在请继续向{roles['角色A']['名称']}表达你的观点，不用在开头打出自己的名字。"
+        f"系统提示: 你现在扮演的是{roles['角色B']}。你的每一句话都要符合人设，且专注于自己的目的，现在请继续向{roles['角色A']['名称']}表达你的观点，不用在开头打出自己的名字。一句话就行，不要任何格式。"
     )
 
-    context_a = f"\n\n{system_prompt_a}" + "\n\n" + str(dialogue) + f"\n\n{roles['角色A']['名称']}:"
-    response_a = call_ollama(context_a)
+    # 生成角色A的回应，只基于最新的一句话
+    response_a = call_gpt(f"{system_prompt_a}\n\n{role_a_name}: {first_sentence}" if first_sentence else system_prompt_a)
     dialogue.append({"role": roles['角色A']['名称'], "content": response_a})
     
-    context_b = f"\n\n{system_prompt_b}" + "\n\n" + str(dialogue) + f"\n\n{roles['角色B']['名称']}:"
-    response_b = call_ollama(context_b)
+    # 生成角色B的回应，只基于角色A的最新回应
+    response_b = call_gpt(f"{system_prompt_b}\n\n{roles['角色A']['名称']}: {response_a}\n{roles['角色B']['名称']}:")
     dialogue.append({"role": roles['角色B']['名称'], "content": response_b})
+
+    # 每10轮生成总结并清除历史
+    if len(dialogue) >= 20:
+        summary = summarize_dialogue(roles['角色A']['名称'],dialogue) + "\n" + summarize_dialogue(roles['角色B']['名称'],dialogue)
+        dialogue = [{"role": "系统总结", "content": summary}]  # 清空对话历史，只保留总结
 
     return json.dumps(dialogue)
 
