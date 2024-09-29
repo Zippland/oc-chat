@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自定义角色对话生成器</title>
+</head>
+<body>
+    <h1>自定义角色对话生成器</h1>
+    
+    <form id="dialogueForm">
+        <label for="roleA_name">角色A名称:</label><br>
+        <input type="text" id="roleA_name" name="roleA_name" placeholder="默认: 哈利·波特"><br><br>
+
+        <label for="roleB_name">角色B名称:</label><br>
+        <input type="text" id="roleB_name" name="roleB_name" placeholder="默认: 德拉科·马尔福"><br><br>
+
+        <label for="first_sentence">角色A的第一句话:</label><br>
+        <input type="text" id="first_sentence" name="first_sentence" placeholder="留空则自动生成"><br><br>
+
+        <button type="submit">生成对话</button>
+    </form>
+
+    <h2>对话结果</h2>
+    <div id="dialogueResult"></div>
+
+    <script>
+        document.getElementById('dialogueForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const roleA_name = document.getElementById('roleA_name').value;
+            const roleB_name = document.getElementById('roleB_name').value;
+            const first_sentence = document.getElementById('first_sentence').value;
+
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    roleA_name: roleA_name,
+                    roleB_name: roleB_name,
+                    first_sentence: first_sentence
+                })
+            });
+            
+            const result = await response.json();
+            const resultDiv = document.getElementById('dialogueResult');
+            resultDiv.innerHTML = result.map(d => `<p><strong>${d.role}:</strong> ${d.content}</p>`).join('');
+        });
+    </script>
+</body>
+</html>
