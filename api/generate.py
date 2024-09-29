@@ -1,11 +1,12 @@
 import json
 import openai
+import os
 from flask import Flask, request
 
 app = Flask(__name__)
 
-# 设置 OpenAI API 密钥
-openai.api_key = 'your_openai_api_key_here'
+# 从环境变量中读取 OpenAI API 密钥
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # 设置角色性格和对话目的
 roles = {
